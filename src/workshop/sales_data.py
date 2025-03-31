@@ -7,15 +7,8 @@ from terminal_colors import TerminalColors as tc
 import asyncpg
 import pandas as pd
 
-from terminal_colors import TerminalColors as tc
-
-# Database Configuration
-DB_CONFIG = {
-    key: os.environ[key]
-    for key in ["DB_HOST", "DB_PORT", "DB_NAME", "DB_USER", "DB_PASSWORD"]
-}
-
-DB_CONFIG["schema"] = "contoso"  # Fixed schema
+POSTGRES_CONNECTION_STRING = os.getenv("POSTGRES_CONNECTION_STRING")
+DB_SCHEMA = "contoso"
 
 logging.basicConfig(level=logging.ERROR)
 logger = logging.getLogger(__name__)
@@ -27,7 +20,7 @@ class SalesData:
 
     async def connect(self) -> None:
         """Establish a connection pool to the database."""
-        db_uri = f"postgresql://{DB_CONFIG['DB_USER']}:{DB_CONFIG['DB_PASSWORD']}@{DB_CONFIG['DB_HOST']}:{DB_CONFIG['DB_PORT']}/{DB_CONFIG['DB_NAME']}"
+        db_uri = POSTGRES_CONNECTION_STRING
 
         try:
             self.pool = await asyncpg.create_pool(dsn=db_uri)
@@ -62,13 +55,13 @@ class SalesData:
         schema_query = f"""
             SELECT table_name, column_name, data_type
             FROM information_schema.columns
-            WHERE table_schema = '{DB_CONFIG["schema"]}'
+            WHERE table_schema = $1
             ORDER BY table_name, ordinal_position;
         """
 
         async with self.pool.acquire() as conn:
             try:
-                schema_data = await conn.fetch(schema_query)
+                schema_data = await conn.fetch(schema_query, DB_SCHEMA)
             except Exception as e:
                 logger.error(f"Schema query failed: {e}")
                 return "Error fetching schema information."
@@ -78,7 +71,7 @@ class SalesData:
             tables.setdefault(row["table_name"], []).append(f"{row['column_name']}: {row['data_type']}")
 
         database_info = "\n".join(
-            [f"Table {DB_CONFIG['schema']}.{table}: Columns: {', '.join(cols)}" for table, cols in tables.items()]
+            [f"Table {DB_SCHEMA}.{table}: Columns: {', '.join(cols)}" for table, cols in tables.items()]
         )
 
         # Fetch unique values for important fields
