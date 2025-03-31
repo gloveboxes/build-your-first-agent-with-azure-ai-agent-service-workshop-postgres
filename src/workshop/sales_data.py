@@ -1,11 +1,10 @@
 import json
 import logging
 import os
-from typing import Optional, List
-from terminal_colors import TerminalColors as tc
-
+from typing import Optional, List, Dict
 import asyncpg
 import pandas as pd
+from terminal_colors import TerminalColors as tc
 
 POSTGRES_CONNECTION_STRING = os.getenv("POSTGRES_CONNECTION_STRING")
 DB_SCHEMA = "contoso"
@@ -20,13 +19,12 @@ class SalesData:
 
     async def connect(self) -> None:
         """Establish a connection pool to the database."""
-        db_uri = POSTGRES_CONNECTION_STRING
-
         try:
-            self.pool = await asyncpg.create_pool(dsn=db_uri)
+            self.pool = await asyncpg.create_pool(dsn=POSTGRES_CONNECTION_STRING)
             logger.info("Database connection pool created.")
         except Exception as e:
             logger.exception("Failed to connect to the database", exc_info=e)
+            raise
 
     async def close(self) -> None:
         """Close the database connection pool."""
@@ -36,75 +34,76 @@ class SalesData:
             logger.info("Database connection pool closed.")
 
     async def fetch_list(self, query: str, column: str) -> List[str]:
-        """Helper function to fetch a list of values from a query."""
+        """Fetch a list of values from the database."""
         if not self.pool:
+            logger.warning("Database connection is not established.")
             return []
 
-        async with self.pool.acquire() as conn:
-            try:
-                return [row[column] for row in await conn.fetch(query)]
-            except Exception as e:
-                logger.error(f"Query failed: {query}, Error: {e}")
-                return []
+        try:
+            async with self.pool.acquire() as conn:
+                rows = await conn.fetch(query)
+                return [row[column] for row in rows]
+        except Exception as e:
+            logger.error(f"Failed to execute query: {query} | Error: {e}")
+            return []
 
     async def get_database_info(self) -> str:
         """Retrieve database schema and common query fields."""
         if not self.pool:
             return "Database connection is not established."
 
-        schema_query = f"""
+        schema_query = """
             SELECT table_name, column_name, data_type
             FROM information_schema.columns
             WHERE table_schema = $1
             ORDER BY table_name, ordinal_position;
         """
 
-        async with self.pool.acquire() as conn:
-            try:
+        try:
+            async with self.pool.acquire() as conn:
                 schema_data = await conn.fetch(schema_query, DB_SCHEMA)
-            except Exception as e:
-                logger.error(f"Schema query failed: {e}")
-                return "Error fetching schema information."
+        except Exception as e:
+            logger.error(f"Schema query failed: {e}")
+            return "Error fetching schema information."
 
-        tables = {}
+        tables: Dict[str, List[str]] = {}
         for row in schema_data:
             tables.setdefault(row["table_name"], []).append(f"{row['column_name']}: {row['data_type']}")
 
-        database_info = "\n".join(
-            [f"Table {DB_SCHEMA}.{table}: Columns: {', '.join(cols)}" for table, cols in tables.items()]
-        )
+        database_info = [
+            f"Table {DB_SCHEMA}.{table}: Columns: {', '.join(cols)}"
+            for table, cols in tables.items()
+        ]
 
-        # Fetch unique values for important fields
-        queries = {
-            "Regions": ("SELECT DISTINCT region FROM contoso.sales_data;", "region"),
-            "Product Types": ("SELECT DISTINCT product_type FROM contoso.sales_data;", "product_type"),
-            "Product Categories": ("SELECT DISTINCT main_category FROM contoso.sales_data;", "main_category"),
-            "Reporting Years": ("SELECT DISTINCT year FROM contoso.sales_data ORDER BY year;", "year"),
+        # Important fields and their queries
+        field_queries = {
+            "Regions": "SELECT DISTINCT region FROM contoso.sales_data;",
+            "Product Types": "SELECT DISTINCT product_type FROM contoso.sales_data;",
+            "Product Categories": "SELECT DISTINCT main_category FROM contoso.sales_data;",
+            "Reporting Years": "SELECT DISTINCT year FROM contoso.sales_data ORDER BY year;",
         }
 
-        results = {key: await self.fetch_list(query, column) for key, (query, column) in queries.items()}
+        for field, query in field_queries.items():
+            values = await self.fetch_list(query, query.split()[2])
+            database_info.append(f"{field}: {', '.join(map(str, values))}")
 
-        # Append additional metadata
-        for key, values in results.items():
-            database_info += f"\n{key}: {', '.join(map(str, values))}"
+        return "\n".join(database_info)
 
-        return database_info
-
-    async def async_fetch_sales_data_using_sqlite_query(self, postgres_query: str) -> str:
-        """Execute a PostgreSQL query and return the result as a JSON string."""
+    async def async_fetch_sales_data_using_sqlite_query(self, query: str) -> str:
+        """Execute a query and return the result as a JSON string."""
         if not self.pool:
             return json.dumps({"error": "Database connection is not established."})
 
-        print((f"{tc.BLUE}Executing query: {postgres_query}{tc.RESET}\n"))
+        print((f"{tc.BLUE}Executing query: {query}{tc.RESET}\n"))
 
-        async with self.pool.acquire() as conn:
-            try:
-                rows = await conn.fetch(postgres_query)
+        try:
+            async with self.pool.acquire() as conn:
+                rows = await conn.fetch(query)
                 if not rows:
                     return json.dumps("The query returned no results. Try a different question.")
 
-                return pd.DataFrame(rows, columns=rows[0].keys()).to_json(index=False, orient="split")
-
-            except Exception as e:
-                logger.error(f"Query execution failed: {e}")
-                return json.dumps({"error": str(e), "query": postgres_query})
+                df = pd.DataFrame(rows, columns=rows[0].keys())
+                return df.to_json(index=False, orient="split")
+        except Exception as e:
+            logger.error(f"Query execution failed: {e}")
+            return json.dumps({"error": str(e), "query": query})
