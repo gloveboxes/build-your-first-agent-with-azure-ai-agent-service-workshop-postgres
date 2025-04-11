@@ -94,7 +94,7 @@ class SalesData:
         if not self.pool:
             return json.dumps({"error": "Database connection is not established."})
 
-        print((f"{tc.BLUE}Executing query: {query}{tc.RESET}\n"))
+        print((f"\n{tc.BLUE}Executing query: {query}{tc.RESET}\n"))
 
         try:
             async with self.pool.acquire() as conn:
