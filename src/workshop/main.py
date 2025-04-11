@@ -46,7 +46,7 @@ project_client = AIProjectClient.from_connection_string(
 
 functions = AsyncFunctionTool(
     {
-        sales_data.async_fetch_sales_data_using_sqlite_query,
+        sales_data.async_fetch_sales_data,
     }
 )
 

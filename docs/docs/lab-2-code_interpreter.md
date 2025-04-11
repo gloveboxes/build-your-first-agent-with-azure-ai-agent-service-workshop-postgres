@@ -89,7 +89,7 @@ Try these questions:
 
             **SELECT region, SUM(revenue) AS total_revenue FROM sales_data GROUP BY region;**
 
-        2. The LLM asks the agent app to call the **async_fetch_sales_data_using_sqlite_query** function. The SQL command is executed, and the resulting data is returned to the LLM.
+        2. The LLM asks the agent app to call the **async_async_fetch_sales_data** function. The SQL command is executed, and the resulting data is returned to the LLM.
         3. Using the returned data, the LLM writes Python code to create a Pie Chart.
         4. Finally, the Code Interpreter executes the Python code to generate the chart.
 

@@ -89,7 +89,7 @@ class SalesData:
 
         return "\n".join(database_info)
 
-    async def async_fetch_sales_data_using_sqlite_query(self, query: str) -> str:
+    async def async_fetch_sales_data(self, query: str) -> str:
         """Execute a query and return the result as a JSON string."""
         if not self.pool:
             return json.dumps({"error": "Database connection is not established."})

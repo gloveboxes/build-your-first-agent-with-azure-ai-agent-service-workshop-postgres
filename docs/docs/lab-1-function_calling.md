@@ -12,11 +12,11 @@ If you’re familiar with [Azure OpenAI Function Calling](https://learn.microsof
 
 With the Azure AI Agent Service and its Python SDK, you can define the function schema directly within the Python function’s docstring. This approach keeps the definition and implementation together, simplifying maintenance and enhancing readability.
 
-For example, in the **sales_data.py** file, the **async_fetch_sales_data_using_sqlite_query** function uses a docstring to specify its signature, inputs, and outputs. The SDK parses this docstring to generate the callable function for the LLM:
+For example, in the **sales_data.py** file, the **async_async_fetch_sales_data** function uses a docstring to specify its signature, inputs, and outputs. The SDK parses this docstring to generate the callable function for the LLM:
 
 ``` python
 
-async def async_fetch_sales_data_using_sqlite_query(self: "SalesData", sqlite_query: str) -> str:
+async def async_async_fetch_sales_data(self: "SalesData", sqlite_query: str) -> str:
     """
     This function is used to answer user questions about Contoso sales data by executing SQLite queries against the database.
 
@@ -172,7 +172,7 @@ Start asking questions about Contoso sales data. For example:
 
             **SELECT region, SUM(revenue) AS total_revenue FROM sales_data GROUP BY region;**
 
-        2. The LLM then asks the agent app to call the **async_fetch_sales_data_using_sqlite_query** function, which retrieves the required data from the SQLite database and returns it to the LLM.
+        2. The LLM then asks the agent app to call the **async_async_fetch_sales_data** function, which retrieves the required data from the SQLite database and returns it to the LLM.
         3. The LLM uses the retrieved data to create a Markdown table, which it then returns to the user. Check the instructions file, you'll see that Markdown is the default output format.
 
 4. **Show sales by category in Europe**
@@ -189,7 +189,7 @@ Start asking questions about Contoso sales data. For example:
 
 ## (Optional) Debug the App
 
-Set a [breakpoint](https://code.visualstudio.com/Docs/editor/debugging){:target="_blank"} in the `async_fetch_sales_data_using_sqlite_query` function located in `sales_data.py` to observe how the LLM requests data.
+Set a [breakpoint](https://code.visualstudio.com/Docs/editor/debugging){:target="_blank"} in the `async_async_fetch_sales_data` function located in `sales_data.py` to observe how the LLM requests data.
 
 !!! info "Note: To use the debug feature, exit the previous run. Then set the breakpoint. Then run the application using the debugger icon in the sidebar. This will open up the debug sidebar, allowing you to watch stack traces and step through execution."
 
